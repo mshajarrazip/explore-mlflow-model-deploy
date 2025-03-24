@@ -40,11 +40,32 @@ The following are the links to the tutorials I used for this project:
 
 #### Note(s):
 
-1. My main concern has always been about environment management. So this small model's environment is stored at [.mlflow/envs/mlflow-RUN_ID]() and the size of this file is `667M` (check with `du -h .mlflow/envs/mlflow-RUN_ID --max-depth 2`). In a current project I'm working on, we need to update models frequently, so I think going with the docker container approach will make environment management easier. 
-1. Next, we will explore that alternative. 
+1. My main concern has always been about environment management. So this small model's environment is stored at [.mlflow/envs/mlflow-RUN_ID]() and the size of this file is `667M` (check with `du -h .mlflow/envs/mlflow-RUN_ID --max-depth 2`). 
+1. Everytime the model is invoked, it will create and use the same environment. But if we update the model everyday (which is something that we are looking into doing), then we will have storage issues, then we need some kind of a storage management, which will be annoying. 
+1. A solution would be to have docker containers instead:
+    - With docker containers, we can simply deploy the latest model version in the registry and prune the depricated containers (voila, garbage collection now enforced).
+    - While I'm writing this, I am using `mlflow model`'s `docker-build` API to explore the out-of-the-box docker builder that comes with MLflow and it takes some time to build. `nginx` and `gunicorn` is used to serve the model from inside the container using `model serve`. Anyway, takes quite a while to build.
+    - Have to keep in mind that we really just need a way to manage the environment & garbage collection right now.
 
 ### Part 2: Building a docker container for the model
 
+1. Build the container:
+    ```
+    uv run mlflow models build-docker --model-uri runs:/RUN_ID/iris_model --name test-iris-model
+    ```
+1. Deploy the container:
+    ```
+    docker run --rm -p 5001:8080 -v /home/hajar/sandbox/explore-mlflow-model-deploy/mlartifacts/EXPERIMENT_ID/RUN_ID/artifacts/iris_model:/opt/ml/model test-iris-model
+    ```
+1. Test the endpoint:
+    ```
+    curl http://127.0.0.1:5001/invocations -H "Content-Type:application/json"  --data '{"inputs": [[1,2,3,4]]}'
+    ```
+    Other endpoints are available. See [this](https://mlflow.org/docs/latest/deployment/deploy-model-locally/#local-inference-server-spec).
+
+## Conclusion
+
+It was a nice exploration session :) 
 
 ## Notes
 
